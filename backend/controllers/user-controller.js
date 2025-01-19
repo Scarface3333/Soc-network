@@ -1,0 +1,234 @@
+const bcrypt = require("bcryptjs");
+const path = require("path");
+const fs = require('fs');
+const jwt = require("jsonwebtoken");
+const { prisma } = require("../prisma/prisma-client");
+const jdenticon = require('jdenticon');
+
+const UserController = {
+  register:  async (req,res) => {
+      const{email,password,name} = req.body;
+   
+
+      if(!email || !password || !name ){
+          return res.status(400).json({error:'Все поля обязательны'})
+      }
+
+      try {
+          const existingUser = await prisma.user.findUnique({where:{email}});
+
+          if (existingUser){
+              return res.status(400).json({error:'Пользователь уже существует'})
+          }
+
+          const hashedPassword = await bcrypt.hash(password,10);
+
+          const png = jdenticon.toPng(`${name}${Date.now()}`,200);
+          const avatarName = `${name}_${Date.now()}.png`;
+          const avatarPath = path.join(__dirname,'/../uploads',avatarName);
+          fs.writeFileSync(avatarPath, png);
+          
+          
+          const user = await prisma.user.create({
+              data: {
+               
+                  email,
+                  password:hashedPassword,
+                  name,
+                  avatarUrl:`/uploads/${avatarName}`
+              }
+          })
+
+          res.json(user)
+      } catch (error) {
+          console.error('Error in register:',error);
+          res.status(500).json({error:'Interal server error'})
+          
+      }
+    
+
+  },
+  login:  async (req,res) => {
+    const {email,password} = req.body;
+    if(!email || !password){
+      return res.status(400).json({error:'Все поля обязательны'})
+    }
+
+    try {
+      const user = await prisma.user.findUnique({where:{email}})
+
+      if(!user){
+          return res.status(400).json({error:'Неверный логин или пароль'})
+      }
+
+      const valid = await bcrypt.compare(password,user.password)
+
+      if(!valid){
+          return res.status(400).json({error:'Неверный логин или пароль'})
+      }
+
+      const token = jwt.sign(({userId:user.id}),process.env.SECRET_KEY)
+
+      res.json ({token})
+    } catch (error) {
+      console.error('Login error',error)
+      res.status(500).json({error:'Internal server error'})
+    }
+
+  },
+  getUserByID: async (req, res) => {
+      const { id } = req.params;
+      const userId = req.user.userId;
+  
+      // Преобразуем id в число
+      const userIdInt = parseInt(id, 10);
+  
+      if (isNaN(userIdInt)) {
+          return res.status(400).json({ error: "Invalid ID format" });
+      }
+  
+      try {
+          const user = await prisma.user.findUnique({
+              where: { id: userIdInt },
+              include: {
+                  followers: true,
+                  following: true
+              }
+          });
+  
+          if (!user) {
+              return res.status(404).json({ error: 'Пользователь не найден' });
+          }
+  
+          const isFollowing = await prisma.follows.findFirst({
+              where: {
+                  AND: [
+                      { followerId: userId },
+                      { followingId: userIdInt }
+                  ]
+              }
+          });
+  
+          res.json({ ...user, isFollowing: Boolean(isFollowing) });
+      } catch (error) {
+          console.error('Get User Error', error);
+          res.status(500).json({ error: 'Internal server error' });
+      }
+  },
+  updateUser: async (req, res) => {
+      const { id } = req.params;
+      const { email, name, dateOfBirth, bio, location } = req.body;
+      
+      // Преобразуем id в число
+      const userIdInt = parseInt(id, 10);
+  
+      if (isNaN(userIdInt)) {
+          return res.status(400).json({ error: "Invalid ID format" });
+      }
+  
+      let filePath;
+  
+      if (req.file && req.file.path) {
+          filePath = req.file.path;
+      }
+  
+      // Проверка на доступ
+      if (userIdInt !== req.user.userId) {
+          return res.status(403).json({ error: 'Нет доступа' });
+      }
+  
+      try {
+          // Проверка на уникальность email
+          if (email) {
+              const existingUser = await prisma.user.findFirst({
+                  where: { email: email }
+              });
+  
+              if (existingUser && existingUser.id !== userIdInt) {
+                  return res.status(400).json({ error: 'Почта уже используется' });
+              }
+          }
+  
+          // Обновление данных пользователя
+          const user = await prisma.user.update({
+              where: { id: userIdInt },
+              data: {
+                  email: email || undefined,
+                  name: name || undefined,
+                  avatarUrl: filePath ? `/${filePath}` : undefined,
+                  dateOfBirth: dateOfBirth || undefined,
+                  bio: bio || undefined,
+                  location: location || undefined
+              }
+          });
+  
+          res.json(user);
+      } catch (error) {
+          console.error('Update user error', error);
+          res.status(500).json({ error: 'Internal server error' });
+      }
+  },
+  
+  current:  async (req,res) => {
+      try {
+          const user =  await prisma.user.findUnique({
+          where:{
+              id: req.user.userId
+          },
+          include:{
+              followers:{
+                  include:{
+                      follower:true
+                  }
+              },
+              following:{
+                  include:{
+                      following:true
+                  }
+              }
+          }
+      })
+
+      if(!user){
+          return res.status(400).json({error:'Не удалось найти пользователя'})
+      }
+      res.json(user)
+      } catch (error) {
+          console.error('Get Current Error',error);
+
+          res.status(500).json({error: 'Internal server error'})
+      }
+  },
+
+  search: async (req, res) => {
+    const { query } = req.query; // Получаем строку поиска из параметров запроса
+
+    try {
+        const users = await prisma.user.findMany({
+            where: query
+                ? {
+                      name: {
+                          startsWith: query, // Ищем пользователей, имена которых начинаются с введенной строки
+                          mode: 'insensitive', // Игнорируем регистр
+                      },
+                  }
+                : {}, // Если query отсутствует, возвращаем всех пользователей
+            select: {
+                id: true,
+                name: true,
+                avatarUrl: true,
+            },
+        });
+
+        return res.json(users);
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ message: 'Internal server error.' });
+    }
+    },
+    
+    
+
+};
+
+module.exports = UserController;
