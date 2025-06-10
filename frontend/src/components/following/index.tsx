@@ -5,6 +5,7 @@ import { Link, useParams } from 'react-router-dom';
 import { Card, CardBody, user } from '@nextui-org/react';
 import { User } from '../user';
 import { useGetFollowerQuery } from '../../app/services/followApi';
+import { GoBack } from '../go-back';
 
 export const Following = () => {
   const { id } = useParams<{ id: string }>();
@@ -23,7 +24,9 @@ export const Following = () => {
   }
 
   return followingList.length > 0 ? (
-    <div className="gap-5 flex-col">
+    <>
+      <GoBack/>
+    <div className="gap-5 flex-col min-w-[360px]">
      { followingList.map((user) => (
       <Link to={`/Search/UserProfilePage/${user.id}`} key={user.id}>
         <Card>
@@ -38,8 +41,12 @@ export const Following = () => {
         </Card>
       </Link>
       ))}
-  </div>
+      </div>
+    </>
   ) : (
-    <h1>У вас нет подписок</h1>
+      <>
+        <GoBack/>
+        <h1>У вас нет подписок</h1>
+      </>
   )
 }

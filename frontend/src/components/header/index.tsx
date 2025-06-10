@@ -30,7 +30,7 @@ const user = {
   return (
     <Navbar >
         <NavbarBrand>
-        <p className="font-bold text-inherit">Liberty</p>
+        <p className="font-bold text-inherit">Network</p>
       </NavbarBrand>
       <NavbarContent justify='center'>
         <UserSearch

@@ -23,38 +23,46 @@ export const CurrentPost = () => {
     likedByUser,
     createdAt,
   } = data;
+
   return (
     <>
       <GoBack />
-      <Card
-        cardFor='current-post'
-        avatarUrl={author.avatarUrl ?? ''}
-        content={content}
-        name={author.name ?? ''}
-        likesCount={likes.length}
-        commentsCount={comments.length}
-        authorId={authorId}
-        id={id}
-        likedByUser={likedByUser}
-        createdAt={createdAt}
-      />
+
+      {/* Оборачиваем карточку поста в div с минимальной шириной */}
+      <div className="min-w-[360px]">
+        <Card
+          cardFor='current-post'
+          avatarUrl={author.avatarUrl ?? ''}
+          content={content}
+          name={author.name ?? ''}
+          likesCount={likes.length}
+          commentsCount={comments.length}
+          authorId={authorId}
+          id={id}
+          likedByUser={likedByUser}
+          createdAt={createdAt}
+        />
+      </div>
+
       <div className="mt-10">
         <CreateComment />
       </div>
-      <div className="mt-10">
+
+      <div className="mt-10 space-y-4">
         {
-          data.comments ?
-            data.comments.map((comment) => (
-              <Card
-                cardFor='comment'
-                key={comment.id}
-                avatarUrl={comment.user.avatarUrl ?? ''}
-                content={comment.content}
-                name={comment.user.name ?? ''}
-                authorId={comment.userId}
-                commentId={comment.id}
-                id={id}
-              />
+          comments ?
+            comments.map((comment) => (
+              <div key={comment.id} className="min-w-[360px]">
+                <Card
+                  cardFor='comment'
+                  avatarUrl={comment.user.avatarUrl ?? ''}
+                  content={comment.content}
+                  name={comment.user.name ?? ''}
+                  authorId={comment.userId}
+                  commentId={comment.id}
+                  id={id}
+                />
+              </div>
             )) : null
         }
       </div>

@@ -31,18 +31,12 @@ const router = createBrowserRouter([
     path: '/',
     element: <Layout />,
     children: [
-      // {
-      //   path: "",
-      //   element: <Posts />
-      // },
+    
       {
         path: "posts/:id",
         element: <CurrentPost />
       },
-      // {
-      //   path: "users/:userId",
-      //   element: <UserProfile/>
-      // },
+  
       {
         path: "Search/UserProfilePage/:id/Followers",
         element: <Followers />
